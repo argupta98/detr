@@ -260,6 +260,7 @@ class PostProcessPanoptic(nn.Module):
         out_logits, raw_masks, raw_boxes = outputs["pred_logits"], outputs["pred_masks"], outputs["pred_boxes"]
         assert len(out_logits) == len(raw_masks) == len(targets)
         preds = []
+        segs = []
         for cur_logits, cur_masks, cur_boxes, target in zip(out_logits, raw_masks, raw_boxes, targets):
             # we filter empty queries and detection below threshold
             scores, labels = cur_logits.softmax(-1).max(-1)
@@ -353,4 +354,5 @@ class PostProcessPanoptic(nn.Module):
                     "segments_info": segments_info,
                 }
             preds.append(predictions)
-        return preds
+            segs.append(seg_img)
+        return preds, segs
