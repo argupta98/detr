@@ -58,6 +58,7 @@ def detect(im, model, transform, postprocessors, im_id):
         out["segmentation"] = postprocessors['segm'](results, outputs, orig_target_sizes, target_sizes)
     if 'panoptic' in postprocessors.keys():
         out["panoptic"] = postprocessors["panoptic"](outputs, targets)
+    out["class_probs"] = probas
 
     return probas[keep], out
 
@@ -74,12 +75,12 @@ def plot_results(pil_img, prob, boxes):
                 bbox=dict(facecolor='yellow', alpha=0.5))
     plt.axis('off')
     plt.savefig('detection.png')
-    plt.show()
 
 def make_seg_img(out):
     masks = out["segmentation"][0]["masks"]
     labels = out["segmentation"][0]["labels"]
     scores = out["segmentation"][0]["scores"]
+    class_probs = out["class_probs"]
     # import IPython; IPython.embed()
     _, h, w = masks[0].shape
     image = np.zeros((h, w, 3))
@@ -92,7 +93,7 @@ def make_seg_img(out):
     mask_indices = []
     for idx in range(len(labels)):
         if scores[idx] < 0.7: continue
-        mask_indices.append(idx)
+        mask_indices.append(class_probs[idx].argmax())
         mask_probs.append(scores[idx] * masks[idx])
 
     # Take the argmax to get the single channel class-segmentation
@@ -111,8 +112,9 @@ def visualize_segmentation(out, im):
     og_img = np.array(im)
     pano_img = pano_img.astype(np.uint8)
     seg_img = make_seg_img(out)
+    summed = (0.7 * seg_img + 0.3 * pano_img).astype(np.uint8)
     # seg_img = (og_img * 0.1 + seg_img * 0.9).astype(np.uint8)
-    output = np.hstack([og_img, pano_img, seg_img])
+    output = np.hstack([og_img, pano_img, seg_img, summed])
     cv2.imshow("seg_img", output[:, :, ::-1])
     cv2.waitKey(0)
     
