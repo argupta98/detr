@@ -76,14 +76,35 @@ def plot_results(pil_img, prob, boxes):
     plt.savefig('detection.png')
     plt.show()
 
+def make_seg_img(out):
+    masks = out["segmentation"][0]["masks"]
+    labels = out["segmentation"][0]["labels"]
+    scores = out["segmentation"][0]["scores"]
+    # import IPython; IPython.embed()
+    _, h, w = masks[0].shape
+    image = np.zeros((h, w, 3))
+    # colors for visualization
+    COLORS = [[0.000, 0.447, 0.741], [0.850, 0.325, 0.098], [0.929, 0.694, 0.125],
+            [0.494, 0.184, 0.556], [0.466, 0.674, 0.188], [0.301, 0.745, 0.933]] * 100
+    for idx in range(len(labels)):
+        if scores[idx] < 0.7: continue
+        color_mask = np.concatenate([(COLORS[labels[idx]][0] * masks[idx]) * 255, 
+                                     (COLORS[labels[idx]][1] * masks[idx]) * 255,
+                                     (COLORS[labels[idx]][2] * masks[idx]) * 255], axis=0)
+        color_mask = np.transpose(color_mask, (1, 2, 0))
+        image += color_mask
+    print("image: max {} min {}".format(image.max(), image.min()))
+    return image.astype(np.uint8)
+
 def visualize_segmentation(out, im):
-    seg_img = np.array(out["panoptic"][1][0]).astype(float)
-    seg_img *= 255. / seg_img.max()
+    pano_img = np.array(out["panoptic"][1][0]).astype(float)
+    pano_img *= 255. / pano_img.max()
     og_img = np.array(im)
-    seg_img = seg_img.astype(np.uint8)
+    pano_img = pano_img.astype(np.uint8)
+    seg_img = make_seg_img(out)
     # seg_img = (og_img * 0.1 + seg_img * 0.9).astype(np.uint8)
-    output = np.hstack([og_img, seg_img])
-    cv2.imshow("seg_img", output)
+    output = np.hstack([og_img, pano_img, seg_img])
+    cv2.imshow("seg_img", output[:, :, ::-1])
     cv2.waitKey(0)
     
 if __name__== "__main__":
@@ -126,7 +147,7 @@ if __name__== "__main__":
     url = 'http://images.cocodataset.org/val2017/000000039769.jpg'
     path = requests.get(url, stream=True).raw
 
-    im = Image.open('examples/one_human_test.png')
+    im = Image.open(path)
 
     scores, out = detect(im, detr, transform, postprocessors, im_id=39769)
     plot_results(im, scores, out["bboxes"])
