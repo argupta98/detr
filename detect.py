@@ -84,17 +84,26 @@ def make_seg_img(out):
     _, h, w = masks[0].shape
     image = np.zeros((h, w, 3))
     # colors for visualization
-    COLORS = [[0.000, 0.447, 0.741], [0.850, 0.325, 0.098], [0.929, 0.694, 0.125],
-            [0.494, 0.184, 0.556], [0.466, 0.674, 0.188], [0.301, 0.745, 0.933]] * 100
+    COLORS = np.array([[0.000, 0.447, 0.741], [0.850, 0.325, 0.098], [0.929, 0.694, 0.125],
+                       [0.494, 0.184, 0.556], [0.466, 0.674, 0.188], [0.301, 0.745, 0.933]] * 100)
+    
+    # Combine the labels into one big matrix
+    mask_probs = []
+    mask_indices = []
     for idx in range(len(labels)):
         if scores[idx] < 0.7: continue
-        color_mask = np.concatenate([(COLORS[labels[idx]][0] * masks[idx]) * 255, 
-                                     (COLORS[labels[idx]][1] * masks[idx]) * 255,
-                                     (COLORS[labels[idx]][2] * masks[idx]) * 255], axis=0)
-        color_mask = np.transpose(color_mask, (1, 2, 0))
-        image += color_mask
-    print("image: max {} min {}".format(image.max(), image.min()))
-    return image.astype(np.uint8)
+        mask_indices.append(idx)
+        mask_probs.append(scores[idx] * masks[idx])
+
+    # Take the argmax to get the single channel class-segmentation
+    concatenated_probs = np.concatenate(mask_probs, axis=0)
+    considered_indices = np.array(mask_indices)
+    mask_argmax = np.argmax(concatenated_probs, axis=0)
+    class_seg = considered_indices[mask_argmax]
+
+    # Expand to a 3-channel color segmentation for visualization
+    class_rgb = COLORS[class_seg]
+    return (class_rgb * 255).astype(np.uint8)
 
 def visualize_segmentation(out, im):
     pano_img = np.array(out["panoptic"][1][0]).astype(float)
